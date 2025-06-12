@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <title>Trait Reroll - Anime Vanguards</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Thai&display=swap');
+
+    body {
+      font-family: 'Noto Sans Thai', sans-serif;
+      text-align: center;
+      background-color: #000;
+      color: #fff;
+      padding: 20px;
+    }
+    img {
+      width: 150px;
+      height: auto;
+      margin: 10px;
+    }
+    button, input, select {
+      margin: 5px;
+      padding: 10px 15px;
+      font-size: 16px;
+      border: none;
+      border-radius: 5px;
+      font-family: 'Noto Sans Thai', sans-serif;
+    }
+    button {
+      background-color: #4CAF50;
+      color: white;
+      cursor: pointer;
+    }
+    input[type="number"] {
+      width: 100px;
+    }
+    .result {
+      margin-top: 20px;
+      animation: pop 0.3s ease-in-out;
+    }
+    .result img {
+      animation: zoomIn 0.2s ease-in-out;
+    }
+    .summary {
+      margin-top: 40px;
+      background-color: #111;
+      padding: 10px;
+      border-radius: 8px;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 10px;
+    }
+    .summary-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .summary-item img {
+      width: 50px;
+      height: auto;
+    }
+    .history {
+      margin-top: 20px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 0;
+    }
+    .history img {
+      width: 25px;
+      height: 25px;
+      object-fit: contain;
+      margin: 0;
+      border: none;
+    }
+    #history-count {
+      margin-top: 10px;
+      font-size: 14px;
+      color: #ccc;
+    }
+    @keyframes pop {
+      0% { transform: scale(0.7); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    @keyframes zoomIn {
+      0% { transform: scale(0.5); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Trait Reroll - Anime Vanguards</h1>
+
+  <div>
+    <button onclick="rerollOnce()">🎲 Reroll 1 ครั้ง</button>
+    หรือ Reroll หลายครั้ง: 
+    <input id="multiCount" type="number" min="1" placeholder="จำนวน" />
+    <button onclick="rerollMultiple()">Reroll ตามจำนวน</button>
+    <button onclick="resetAll()">🔄 รีเซตทั้งหมด</button>
+  </div>
+
+  <div style="margin-top: 15px;">
+    🌟 Auto reroll จนกว่าจะได้:
+    <select id="targetTrait">
+      <option disabled selected>เลือก trait</option>
+    </select>
+    <button onclick="autoReroll()">▶️ Auto Reroll</button>
+    <button onclick="stopAutoReroll()">⛔ หยุด Auto Reroll</button>
+  </div>
+
+  <div class="result" id="result"></div>
+  <div id="history-count"></div>
+  <div class="history" id="history"></div>
+  <div class="summary" id="summary"></div>
+
+  <audio id="rollSound" src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_2462056d6b.mp3?filename=pop-94319.mp3"></audio>
+
+  <script>
+    const traits = [
+      { name: "Vigor", weight: 26, image: "vigor.png" },
+      { name: "Swift", weight: 26, image: "swift.png" },
+      { name: "Range", weight: 26, image: "range.png" },
+      { name: "Scholar", weight: 10, image: "scholar.png" },
+      { name: "Marksman", weight: 6.5, image: "marksman.png" },
+      { name: "Fortune", weight: 2.5, image: "fortune.png" },
+      { name: "Blitz", weight: 1.85, image: "blitz.png" },
+      { name: "Solar", weight: 0.5, image: "solar.png" },
+      { name: "Deadeye", weight: 0.375, image: "deadeye.png" },
+      { name: "Ethereal", weight: 0.175, image: "ethereal.png" },
+      { name: "Monarch", weight: 0.1, image: "monarch.png" }
+    ];
+
+    const select = document.getElementById("targetTrait");
+    traits.forEach(t => {
+      select.innerHTML += `<option value="${t.name}">${t.name}</option>`;
+    });
+
+    let autoRerolling = false;
+    let allHistory = [];
+
+    function weightedRandom() {
+      const total = traits.reduce((sum, t) => sum + t.weight, 0);
+      let rand = Math.random() * total;
+      for (let t of traits) {
+        if (rand < t.weight) return t;
+        rand -= t.weight;
+      }
+    }
+
+    function playSound() {
+      const sound = document.getElementById("rollSound");
+      sound.currentTime = 0;
+      sound.play();
+    }
+
+    function rerollOnce() {
+      const result = weightedRandom();
+      allHistory.push(result);
+      displayResult(result);
+      updateSummary(allHistory);
+      updateHistory([result]);
+      playSound();
+    }
+
+    function rerollMultiple() {
+      const count = parseInt(document.getElementById("multiCount").value);
+      if (isNaN(count) || count <= 0) return alert("กรุณาใส่จำนวนให้ถูกต้อง");
+      const results = [];
+      for (let i = 0; i < count; i++) {
+        const result = weightedRandom();
+        results.push(result);
+        allHistory.push(result);
+      }
+      displayResult(results[results.length - 1]);
+      updateSummary(allHistory);
+      updateHistory(results);
+      playSound();
+    }
+
+    async function autoReroll() {
+      const target = document.getElementById("targetTrait").value;
+      if (!target) return alert("กรุณาเลือก trait ที่ต้องการ");
+      autoRerolling = true;
+      while (autoRerolling) {
+        const result = weightedRandom();
+        allHistory.push(result);
+        displayResult(result);
+        updateHistory([result]);
+        playSound();
+        if (result.name.toLowerCase().trim() === target.toLowerCase().trim()) break;
+        await new Promise(r => setTimeout(r, 80));
+      }
+      autoRerolling = false;
+      updateSummary(allHistory);
+    }
+
+    function stopAutoReroll() {
+      autoRerolling = false;
+    }
+
+    function displayResult(result) {
+      const resultContainer = document.getElementById("result");
+      resultContainer.innerHTML = `
+        <h2>ผลลัพธ์ล่าสุด: ${result.name}</h2>
+        <img src="images/${result.image}" alt="${result.name}" style="animation: zoomIn 0.2s ease-in-out;">
+      `;
+    }
+
+    function updateSummary(results) {
+      const summary = {};
+      results.forEach(r => {
+        summary[r.name] = (summary[r.name] || 0) + 1;
+      });
+      const sorted = Object.entries(summary).sort((a, b) => {
+        const wA = traits.find(t => t.name === a[0]).weight;
+        const wB = traits.find(t => t.name === b[0]).weight;
+        return wB - wA;
+      });
+      let output = "";
+      sorted.forEach(([name, count]) => {
+        const trait = traits.find(t => t.name === name);
+        output += `<div class="summary-item"><img src="images/${trait.image}" alt="${name}"><span>${count}</span></div>`;
+      });
+      document.getElementById("summary").innerHTML = output;
+    }
+
+    function updateHistory(results) {
+      const container = document.getElementById("history");
+      results.forEach(r => {
+        const img = document.createElement("img");
+        img.src = `images/${r.image}`;
+        img.alt = r.name;
+        container.appendChild(img);
+      });
+      document.getElementById("history-count").textContent = `🎯 จำนวนครั้งที่ reroll: ${allHistory.length} ครั้ง`;
+    }
+
+    function resetAll() {
+  autoRerolling = false;
+  allHistory = [];
+  document.getElementById("result").innerHTML = "";
+  document.getElementById("history").innerHTML = "";
+  document.getElementById("summary").innerHTML = "";
+  document.getElementById("history-count").textContent = "";
+  document.getElementById("multiCount").value = "";
+  document.getElementById("targetTrait").selectedIndex = 0;
+}
+
+  </script>
+
+  
+
+</body>
+</html>
